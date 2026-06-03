@@ -47,7 +47,6 @@ export function RelatedProjects({ slug, graph }: RelatedProjectsProps) {
                   fill
                   className="object-cover transition-transform duration-500 group-hover:scale-105"
                   sizes="(max-width: 640px) 100vw, 33vw"
-                  unoptimized
                 />
               </div>
 

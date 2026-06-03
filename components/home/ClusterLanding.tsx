@@ -78,8 +78,7 @@ function ClusterCard({
                     alt=""
                     fill
                     className="object-cover transition-transform duration-500 group-hover:scale-105"
-                    sizes="200px"
-                    unoptimized
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 17vw"
                   />
                 )}
               </div>

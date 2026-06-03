@@ -101,7 +101,6 @@ function ProjectCard({ node, clusterLabel, delay, onClick }: ProjectCardProps) {
           fill
           className="object-cover transition-transform duration-500 group-hover:scale-105"
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-          unoptimized
         />
         {/* Overlay on hover */}
         <div className="absolute inset-0 bg-canvas/0 transition-colors duration-300 group-hover:bg-canvas/20" />

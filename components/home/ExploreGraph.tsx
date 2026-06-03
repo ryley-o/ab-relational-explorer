@@ -427,7 +427,6 @@ function ExploreCard({ node, cluster, item, w, h, isFocused, animDelay, onFocus 
             fill
             className="object-cover"
             sizes="320px"
-            unoptimized
           />
         </div>
       )}
