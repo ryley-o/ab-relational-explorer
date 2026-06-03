@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Near-black background */
+  --canvas: 10 10 12;
+  /* Slightly elevated surface */
+  --canvas-raised: 20 20 26;
+  /* Primary text */
+  --ink: 238 238 242;
+  /* Secondary text */
+  --ink-dim: 140 140 158;
+  /* Tertiary / border */
+  --ink-faint: 58 58 72;
+  /* Accent: cool cyan */
+  --accent: 80 200 180;
+
+  --font-display: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background-color: rgb(var(--canvas));
+  color: rgb(var(--ink));
+}
+
+body {
+  font-family: var(--font-display);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: rgb(var(--accent) / 0.25);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--ink-faint));
+  border-radius: 3px;
+}
