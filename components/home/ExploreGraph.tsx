@@ -121,9 +121,10 @@ interface ExploreGraphProps {
   focusedNodeId: string;
   onFocusNode: (nodeId: string) => void;
   onBack: () => void;
+  backLabel?: string;
 }
 
-export function ExploreGraph({ graph, focusedNodeId, onFocusNode, onBack }: ExploreGraphProps) {
+export function ExploreGraph({ graph, focusedNodeId, onFocusNode, onBack, backLabel = "← All projects" }: ExploreGraphProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const [cw, setCw] = useState(() => (typeof window !== "undefined" ? window.innerWidth : 1280));
   const [ch, setCh] = useState(() => (typeof window !== "undefined" ? window.innerHeight : 800));
@@ -351,7 +352,7 @@ export function ExploreGraph({ graph, focusedNodeId, onFocusNode, onBack }: Expl
         data-card
         className="absolute left-6 top-20 z-50 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.22em] text-ink-dim transition-colors hover:text-ink"
       >
-        ← All projects
+        {backLabel}
       </motion.button>
 
       <motion.p

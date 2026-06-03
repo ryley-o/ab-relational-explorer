@@ -1,21 +1,14 @@
 import { loadFullGraph, toClientGraph } from "@/lib/semantic-graph/load";
-import { HomeController } from "@/components/home/HomeController";
+import { ClusterLanding } from "@/components/home/ClusterLanding";
 import type { ProjectMeta } from "@/lib/projects/types";
 
-interface HomePageProps {
-  searchParams: Promise<{ project?: string }>;
-}
-
-export default async function HomePage({ searchParams }: HomePageProps) {
-  const { project } = await searchParams;
-
+export default async function HomePage() {
   let clientGraph;
   try {
-    const fullGraph = loadFullGraph<ProjectMeta>();
-    clientGraph = toClientGraph(fullGraph);
+    clientGraph = toClientGraph(loadFullGraph<ProjectMeta>());
   } catch {
     return (
-      <div className="flex min-h-[calc(100vh-80px)] items-center justify-center px-6">
+      <div className="flex min-h-[calc(100vh-56px)] items-center justify-center px-6">
         <div className="max-w-md text-center">
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink-dim mb-4">
             graph not built
@@ -36,12 +29,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     );
   }
 
-  const validProject =
-    project && clientGraph.nodes.some((n) => n.id === project) ? project : null;
-
   return (
-    <div className="min-h-[calc(100vh-80px)]">
-      <HomeController graph={clientGraph} initialFocusId={validProject} />
+    <div className="min-h-[calc(100vh-56px)]">
+      <ClusterLanding graph={clientGraph} />
     </div>
   );
 }
