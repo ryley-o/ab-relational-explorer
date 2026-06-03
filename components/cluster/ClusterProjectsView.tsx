@@ -3,19 +3,15 @@
 import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
-import type { ClientGraph, ClientGraphNode, GraphCluster } from "@/lib/semantic-graph/types";
 import type { ProjectMeta } from "@/lib/projects/types";
 
 interface ClusterProjectsViewProps {
-  graph: ClientGraph<ProjectMeta>;
-  cluster: GraphCluster;
+  cluster: { id: string; label: string; description: string };
+  members: Array<{ id: string; metadata: ProjectMeta }>;
   onCardClick: (nodeId: string) => void;
 }
 
-export function ClusterProjectsView({ graph, cluster, onCardClick }: ClusterProjectsViewProps) {
-  const members = cluster.memberIds
-    .map((id) => graph.nodes.find((n) => n.id === id) as ClientGraphNode<ProjectMeta> | undefined)
-    .filter((n): n is ClientGraphNode<ProjectMeta> => n != null);
+export function ClusterProjectsView({ cluster, members, onCardClick }: ClusterProjectsViewProps) {
 
   return (
     <motion.div
@@ -63,7 +59,7 @@ function ProjectCard({
   delay,
   onClick,
 }: {
-  node: ClientGraphNode<ProjectMeta>;
+  node: { id: string; metadata: ProjectMeta };
   delay: number;
   onClick: () => void;
 }) {

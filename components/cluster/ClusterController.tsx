@@ -5,48 +5,52 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
 import type { ClientGraph } from "@/lib/semantic-graph/types";
 import type { ProjectMeta } from "@/lib/projects/types";
+import { fetchClientGraph } from "@/lib/semantic-graph/fetch-client";
 import { ClusterProjectsView } from "./ClusterProjectsView";
 import { ExploreGraph } from "@/components/home/ExploreGraph";
 
 interface ClusterControllerProps {
-  graph: ClientGraph<ProjectMeta>;
-  clusterId: string;
+  cluster: { id: string; label: string; description: string };
+  members: Array<{ id: string; metadata: ProjectMeta }>;
   initialFocusId?: string | null;
 }
 
-export function ClusterController({ graph, clusterId, initialFocusId = null }: ClusterControllerProps) {
+export function ClusterController({ cluster, members, initialFocusId = null }: ClusterControllerProps) {
   const router = useRouter();
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(initialFocusId);
+  const [fullGraph, setFullGraph] = useState<ClientGraph<ProjectMeta> | null>(null);
 
+  // Prefetch graph.json as soon as the cluster page mounts so it's
+  // likely ready by the time the user clicks a project card.
   useEffect(() => {
-    setFocusedNodeId(initialFocusId ?? null);
-  }, [initialFocusId]);
+    fetchClientGraph<ProjectMeta>().then(setFullGraph);
+  }, []);
 
-  function handleFocusNode(nodeId: string) {
+  async function handleFocusNode(nodeId: string) {
+    const graph = fullGraph ?? await fetchClientGraph<ProjectMeta>();
+    setFullGraph(graph);
     setFocusedNodeId(nodeId);
-    router.push(`/cluster/${encodeURIComponent(clusterId)}?project=${nodeId}`, { scroll: false });
+    router.push(`/cluster/${encodeURIComponent(cluster.id)}?project=${nodeId}`, { scroll: false });
   }
 
   function handleBack() {
     setFocusedNodeId(null);
-    router.push(`/cluster/${encodeURIComponent(clusterId)}`, { scroll: false });
+    router.push(`/cluster/${encodeURIComponent(cluster.id)}`, { scroll: false });
   }
-
-  const cluster = graph.clusters.find((c) => c.id === clusterId)!;
 
   return (
     <AnimatePresence mode="sync">
-      {focusedNodeId === null ? (
+      {focusedNodeId === null || fullGraph === null ? (
         <ClusterProjectsView
           key="browse"
-          graph={graph}
           cluster={cluster}
+          members={members}
           onCardClick={handleFocusNode}
         />
       ) : (
         <ExploreGraph
           key="explore"
-          graph={graph}
+          graph={fullGraph}
           focusedNodeId={focusedNodeId}
           onFocusNode={handleFocusNode}
           onBack={handleBack}
