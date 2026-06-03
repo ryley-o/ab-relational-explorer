@@ -4,3 +4,4 @@
 node_modules/
 public/graph.json
 .graph-cache/
+.DS_Store
