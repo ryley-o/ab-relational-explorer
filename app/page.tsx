@@ -1,8 +1,15 @@
 import { loadFullGraph, toClientGraph } from "@/lib/semantic-graph/load";
 import { ClusterLanding } from "@/components/home/ClusterLanding";
+import { HomeController } from "@/components/home/HomeController";
 import type { ProjectMeta } from "@/lib/projects/types";
 
-export default async function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ project?: string }>;
+}) {
+  const { project } = await searchParams;
+
   let clientGraph;
   try {
     clientGraph = toClientGraph(loadFullGraph<ProjectMeta>());
@@ -25,6 +32,14 @@ export default async function HomePage() {
             </code>
           </p>
         </div>
+      </div>
+    );
+  }
+
+  if (project) {
+    return (
+      <div className="min-h-[calc(100vh-56px)]">
+        <HomeController graph={clientGraph} initialFocusId={project} />
       </div>
     );
   }
