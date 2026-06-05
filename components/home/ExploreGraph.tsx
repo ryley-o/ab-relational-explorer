@@ -6,6 +6,9 @@ import Link from "next/link";
 import Image from "next/image";
 import type { ClientGraph, ClientGraphNode, GraphCluster } from "@/lib/semantic-graph/types";
 import type { ProjectMeta } from "@/lib/projects/types";
+import { useMarketData, meetsFilter, isFilterActive, type FilterState } from "@/lib/use-market-data";
+import { LICENSE_META } from "@/lib/licenses";
+import { PriceBadge, LicenseBadge, fmtUsdFull } from "@/components/home/FilterBar";
 
 // ---------------------------------------------------------------------------
 // Card size constants
@@ -122,9 +125,13 @@ interface ExploreGraphProps {
   onFocusNode: (nodeId: string) => void;
   onBack: () => void;
   backLabel?: string;
+  filters?: FilterState;
 }
 
-export function ExploreGraph({ graph, focusedNodeId, onFocusNode, onBack, backLabel = "← All projects" }: ExploreGraphProps) {
+export function ExploreGraph({ graph, focusedNodeId, onFocusNode, onBack, backLabel = "← All projects", filters }: ExploreGraphProps) {
+  const market = useMarketData();
+  const filterOn = filters ? isFilterActive(filters) : false;
+  const ethUsd = market.ethUsd;
   const overlayRef = useRef<HTMLDivElement>(null);
   const [cw, setCw] = useState(() => (typeof window !== "undefined" ? window.innerWidth : 1280));
   const [ch, setCh] = useState(() => (typeof window !== "undefined" ? window.innerHeight : 800));
@@ -336,6 +343,10 @@ export function ExploreGraph({ graph, focusedNodeId, onFocusNode, onBack, backLa
                 isFocused={isFocused}
                 animDelay={idx * 0.045}
                 onFocus={item.depth > 0 ? () => { if (!didDragRef.current) onFocusNode(item.id); } : undefined}
+                marketEntry={market.projects[item.id]}
+                ethUsd={market.ethUsd}
+                marketLoading={market.loading}
+                dimmed={!isFocused && filterOn && !meetsFilter(market.projects[item.id], filters!, ethUsd)}
               />
             );
           })}
@@ -380,19 +391,27 @@ interface ExploreCardProps {
   isFocused: boolean;
   animDelay: number;
   onFocus?: () => void;
+  marketEntry?: { floorEth: number | null; license: string | null; licenseCategory: string };
+  ethUsd?: number | null;
+  marketLoading?: boolean;
+  dimmed?: boolean;
 }
 
-function ExploreCard({ node, cluster, item, w, h, isFocused, animDelay, onFocus }: ExploreCardProps) {
+function ExploreCard({ node, cluster, item, w, h, isFocused, animDelay, onFocus, marketEntry, ethUsd, marketLoading, dimmed }: ExploreCardProps) {
   const p = node.metadata;
   const year = new Date(p.startDatetime).getFullYear();
   const targetX = item.pos.x - w / 2;
   const targetY = item.pos.y - h / 2;
 
+  const licMeta = marketEntry?.licenseCategory
+    ? LICENSE_META[marketEntry.licenseCategory as keyof typeof LICENSE_META]
+    : null;
+
   return (
     <motion.div
       data-card
       initial={{ opacity: 0, scale: 0.85, x: targetX, y: targetY }}
-      animate={{ opacity: 1, scale: 1, x: targetX, y: targetY }}
+      animate={{ opacity: dimmed ? 0.3 : 1, scale: 1, x: targetX, y: targetY }}
       exit={{ opacity: 0, scale: 0.85 }}
       transition={{
         opacity: { duration: 0.3, delay: animDelay },
@@ -454,10 +473,26 @@ function ExploreCard({ node, cluster, item, w, h, isFocused, animDelay, onFocus 
           </p>
         )}
 
+        {/* Price + license (focused card only) */}
+        {isFocused && (
+          <div className="mt-3 flex items-center gap-2 flex-wrap">
+            <PriceBadge floorEth={marketEntry?.floorEth} ethUsd={ethUsd} loading={marketLoading} size="sm" />
+            {licMeta && (
+              <LicenseBadge category={licMeta.id} size="sm" />
+            )}
+          </div>
+        )}
+
         <div className={["flex items-center", isFocused ? "mt-4 gap-3" : "mt-3"].join(" ")}>
           <span className={["font-mono text-ink-faint", isFocused ? "text-[10px]" : "text-[9px]"].join(" ")}>
             {year}
           </span>
+
+          {!isFocused && item.depth === 1 && marketEntry?.floorEth != null && ethUsd != null && (
+            <span className="ml-auto font-mono text-[9px] text-accent/70">
+              {fmtUsdFull(marketEntry.floorEth * ethUsd)}
+            </span>
+          )}
 
           {isFocused && (
             <div className="ml-auto flex items-center gap-2">
@@ -468,7 +503,7 @@ function ExploreCard({ node, cluster, item, w, h, isFocused, animDelay, onFocus 
                 onClick={(e) => e.stopPropagation()}
                 className="rounded-md border border-accent/35 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-accent transition-colors hover:border-accent hover:bg-accent/8"
               >
-                Art Blocks →
+                Buy →
               </a>
               <Link
                 href={`/project/${node.id}`}
@@ -480,7 +515,7 @@ function ExploreCard({ node, cluster, item, w, h, isFocused, animDelay, onFocus 
             </div>
           )}
 
-          {!isFocused && item.linkKind === "bridge" && (
+          {!isFocused && item.linkKind === "bridge" && item.depth !== 1 && (
             <span className="ml-auto h-1.5 w-1.5 rounded-full bg-accent opacity-60" />
           )}
         </div>

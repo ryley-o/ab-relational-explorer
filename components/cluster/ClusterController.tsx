@@ -8,6 +8,7 @@ import type { ProjectMeta } from "@/lib/projects/types";
 import { fetchClientGraph } from "@/lib/semantic-graph/fetch-client";
 import { ClusterProjectsView } from "./ClusterProjectsView";
 import { ExploreGraph } from "@/components/home/ExploreGraph";
+import { useFilterState } from "@/lib/use-filter-state";
 
 interface ClusterControllerProps {
   cluster: { id: string; label: string; description: string };
@@ -19,9 +20,8 @@ export function ClusterController({ cluster, members, initialFocusId = null }: C
   const router = useRouter();
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(initialFocusId);
   const [fullGraph, setFullGraph] = useState<ClientGraph<ProjectMeta> | null>(null);
+  const [filters, setFilters] = useFilterState();
 
-  // Prefetch graph.json as soon as the cluster page mounts so it's
-  // likely ready by the time the user clicks a project card.
   useEffect(() => {
     fetchClientGraph<ProjectMeta>().then(setFullGraph);
   }, []);
@@ -46,6 +46,8 @@ export function ClusterController({ cluster, members, initialFocusId = null }: C
           cluster={cluster}
           members={members}
           onCardClick={handleFocusNode}
+          filters={filters}
+          onFiltersChange={setFilters}
         />
       ) : (
         <ExploreGraph
@@ -55,6 +57,7 @@ export function ClusterController({ cluster, members, initialFocusId = null }: C
           onFocusNode={handleFocusNode}
           onBack={handleBack}
           backLabel="← Back to collection"
+          filters={filters}
         />
       )}
     </AnimatePresence>

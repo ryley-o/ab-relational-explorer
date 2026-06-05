@@ -8,7 +8,8 @@
     "start": "next start --port 3002",
     "lint": "next lint",
     "scrape": "tsx scripts/scrape-projects.ts",
-    "build-graph": "tsx scripts/build-graph.ts"
+    "build-graph": "tsx scripts/build-graph.ts",
+    "cache-prices": "tsx scripts/cache-prices.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.98.0",
