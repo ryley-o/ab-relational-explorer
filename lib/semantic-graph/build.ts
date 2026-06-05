@@ -6,7 +6,7 @@
  */
 
 import { embedMultimodal } from "./embed";
-import { createLabelClient, labelAxis, labelCluster } from "./label";
+import { createLabelClient, disambiguateClusters, labelAxis, labelCluster } from "./label";
 import {
   buildSimilarityLayout,
   distSq,
@@ -199,6 +199,104 @@ export async function buildSemanticGraph<T>(
       projection,
     });
   }
+
+  console.log("Step 3b: Disambiguating cluster labels…");
+  const disambigActions = await disambiguateClusters(
+    clusters.map((c) => ({ id: c.id, label: c.label, description: c.description })),
+    labelClient.client,
+    labelClient.cache,
+  );
+
+  if (disambigActions.length === 0) {
+    console.log("  No changes needed.");
+  } else {
+    // Apply renames first (no structural changes)
+    for (const action of disambigActions) {
+      if (action.action !== "rename") continue;
+      const cluster = clusters.find((c) => c.id === action.id);
+      if (!cluster) { console.log(`  rename ${action.id}: not found, skipping`); continue; }
+      cluster.label = action.label;
+      cluster.description = action.description;
+      console.log(`  rename ${action.id} → "${action.label}"`);
+    }
+
+    // Apply merges (structural: reassign labels, rebuild projection, remove dropped cluster)
+    for (const action of disambigActions) {
+      if (action.action !== "merge") continue;
+      const keepCluster = clusters.find((c) => c.id === action.keepId);
+      const dropCluster = clusters.find((c) => c.id === action.dropId);
+      if (!keepCluster || !dropCluster) {
+        console.log(`  merge ${action.dropId}→${action.keepId}: cluster not found, skipping`);
+        continue;
+      }
+
+      // Find k-means indices via labelToClusterId
+      let keepKIdx = -1; let dropKIdx = -1;
+      for (const [kIdx, cId] of labelToClusterId.entries()) {
+        if (cId === action.keepId) keepKIdx = kIdx;
+        if (cId === action.dropId) dropKIdx = kIdx;
+      }
+      if (keepKIdx === -1 || dropKIdx === -1) {
+        console.log(`  merge ${action.dropId}→${action.keepId}: k-means index not found, skipping`);
+        continue;
+      }
+
+      // Reassign raw k-means labels so node building maps drop→keep
+      for (let i = 0; i < labels.length; i++) {
+        if (labels[i] === dropKIdx) labels[i] = keepKIdx;
+      }
+
+      // Fold soft-membership weights for drop into keep
+      for (let i = 0; i < weights.length; i++) {
+        weights[i][keepKIdx] += weights[i][dropKIdx];
+        weights[i][dropKIdx] = 0;
+      }
+
+      // Merge activeClusters entries (keep arrays in sync with clusters array)
+      const keepActiveIdx = activeClusters.findIndex(({ idx }) => idx === keepKIdx);
+      const dropActiveIdx = activeClusters.findIndex(({ idx }) => idx === dropKIdx);
+      if (keepActiveIdx >= 0 && dropActiveIdx >= 0) {
+        activeClusters[keepActiveIdx].memberIdxs = [
+          ...activeClusters[keepActiveIdx].memberIdxs,
+          ...activeClusters[dropActiveIdx].memberIdxs,
+        ];
+        activeClusters.splice(dropActiveIdx, 1);
+        // clusters[i] corresponds to activeClusters[i], so remove at same index
+        clusters.splice(dropActiveIdx, 1);
+      }
+
+      // Update keep cluster: merged members, new label/description, rebuilt projection
+      const mergedMemberIds = [...keepCluster.memberIds, ...dropCluster.memberIds];
+      keepCluster.memberIds = mergedMemberIds;
+      keepCluster.label = action.label;
+      keepCluster.description = action.description;
+
+      const mergedMemberIdxs = mergedMemberIds.map((id) => ids.indexOf(id)).filter((i) => i >= 0);
+      const mergedMemberEmbeddings = mergedMemberIdxs.map((i) => normalizedEmbeddings[i]);
+      const mergedLayoutResult = buildSimilarityLayout(
+        ids, normalizedEmbeddings, mergedMemberIds, mergedMemberEmbeddings, centroids[keepKIdx],
+      );
+      const mergedXPoles = getPoleItems(
+        mergedLayoutResult.angularXScores.map((s) => s.id),
+        mergedLayoutResult.angularXScores.map((s) => s.score),
+        metaMap, POLE_COUNT,
+      );
+      const mergedYPoles = getPoleItems(
+        mergedLayoutResult.angularYScores.map((s) => s.id),
+        mergedLayoutResult.angularYScores.map((s) => s.score),
+        metaMap, POLE_COUNT,
+      );
+      const [mergedXAxis, mergedYAxis] = await Promise.all([
+        labelAxis(mergedXPoles.negative, mergedXPoles.positive, labelClient.client, labelClient.cache),
+        labelAxis(mergedYPoles.negative, mergedYPoles.positive, labelClient.client, labelClient.cache),
+      ]);
+      keepCluster.projection = { axes: { x: mergedXAxis, y: mergedYAxis }, positions: mergedLayoutResult.positions };
+
+      console.log(`  merge ${action.dropId}→${action.keepId}: "${action.label}" (${mergedMemberIds.length} members)`);
+    }
+  }
+
+  console.log(`  Final clusters: ${clusters.length} (${clusters.map((c) => c.label).join(", ")})`);
 
   console.log("Step 4: Building global projection…");
   const globalProjection = await buildProjection(ids, ids, normalizedEmbeddings, normalizedEmbeddings, metaMap, labelClient);

@@ -43,7 +43,7 @@ export function ClusterProjectsView({ cluster, members, onCardClick, filters, on
         href="/"
         className="mb-10 inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.22em] text-ink-dim transition-colors hover:text-ink"
       >
-        ← All collections
+        ← All styles
       </Link>
 
       <div className="mb-8">

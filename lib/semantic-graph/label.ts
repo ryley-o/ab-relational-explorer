@@ -34,10 +34,10 @@ function saveCache(cacheDir: string, cache: LabelCache): void {
   writeFileSync(join(cacheDir, "labels.json"), JSON.stringify(cache, null, 2));
 }
 
-async function callClaude(client: Anthropic, prompt: string): Promise<string> {
+async function callClaude(client: Anthropic, prompt: string, maxTokens = 200): Promise<string> {
   const msg = await client.messages.create({
     model: MODEL,
-    max_tokens: 200,
+    max_tokens: maxTokens,
     messages: [{ role: "user", content: prompt }],
   });
   const block = msg.content[0];
@@ -49,8 +49,9 @@ async function parseJson<T>(
   client: Anthropic,
   prompt: string,
   validate: (parsed: unknown) => parsed is T,
+  maxTokens = 200,
 ): Promise<T> {
-  const raw = await callClaude(client, prompt);
+  const raw = await callClaude(client, prompt, maxTokens);
   const cleaned = raw.replace(/^```(?:json)?\s*/m, "").replace(/\s*```\s*$/m, "").trim();
   try {
     const parsed = JSON.parse(cleaned);
@@ -61,6 +62,7 @@ async function parseJson<T>(
   const retry = await callClaude(
     client,
     prompt + "\n\nIMPORTANT: Your previous response could not be parsed as JSON. Respond with ONLY valid JSON, no other text.",
+    maxTokens,
   );
   const cleaned2 = retry.replace(/^```(?:json)?\s*/m, "").replace(/\s*```\s*$/m, "").trim();
   const parsed2 = JSON.parse(cleaned2);
@@ -138,6 +140,69 @@ Respond with JSON only — no prose, no code fences:
   const result = await parseJson(client, prompt, isClusterLabel);
   cache[cacheKey] = result;
   return result;
+}
+
+export type DisambiguationAction =
+  | { action: "rename"; id: string; label: string; description: string }
+  | { action: "merge"; keepId: string; dropId: string; label: string; description: string };
+
+function isDisambiguationResult(v: unknown): v is { actions: DisambiguationAction[] } {
+  if (typeof v !== "object" || v === null) return false;
+  const obj = v as Record<string, unknown>;
+  if (!Array.isArray(obj.actions)) return false;
+  return (obj.actions as unknown[]).every((a) => {
+    if (typeof a !== "object" || a === null) return false;
+    const act = a as Record<string, unknown>;
+    if (act.action === "rename") {
+      return typeof act.id === "string" && typeof act.label === "string" && typeof act.description === "string";
+    }
+    if (act.action === "merge") {
+      return (
+        typeof act.keepId === "string" &&
+        typeof act.dropId === "string" &&
+        typeof act.label === "string" &&
+        typeof act.description === "string"
+      );
+    }
+    return false;
+  });
+}
+
+export async function disambiguateClusters(
+  clusters: Array<{ id: string; label: string; description: string }>,
+  client: Anthropic,
+  cache: LabelCache,
+): Promise<DisambiguationAction[]> {
+  const cacheKey = `disambiguate:${hashContent(JSON.stringify(clusters))}`;
+  if (cacheKey in cache) return cache[cacheKey] as DisambiguationAction[];
+
+  const clusterList = clusters
+    .map((c) => `  ${c.id}: "${c.label}" — ${c.description}`)
+    .join("\n");
+
+  const prompt = `You are reviewing cluster labels for a semantic map of Art Blocks generative art projects. Find any pairs of clusters whose labels and themes are too similar to be meaningfully distinct, then either rename them to be more specific or merge them.
+
+Clusters:
+${clusterList}
+
+Rules:
+- Only flag pairs where there is genuine confusion: nearly identical names, or descriptions covering the same visual/thematic territory.
+- "rename": use when the clusters ARE genuinely different underneath but have lazy or overlapping names. Rename each to something more specific and visually distinctive.
+- "merge": use when no meaningful visual or thematic distinction can be drawn even with better names. Set keepId to the larger/more representative cluster.
+- Leave clearly distinct clusters alone — do not rename for the sake of it.
+- Labels must be 2–5 words, specific to the visual aesthetic — not generic phrases like "Generative Abstract Art" or "Abstract Generative Compositions".
+- If nothing needs changing, return an empty actions array.
+
+Respond with JSON only — no prose, no code fences:
+{ "actions": [] }
+
+Each action is one of:
+{ "action": "rename", "id": "<id>", "label": "<new label>", "description": "<new one-sentence description>" }
+{ "action": "merge", "keepId": "<id to keep>", "dropId": "<id to remove>", "label": "<merged label>", "description": "<merged one-sentence description>" }`;
+
+  const result = await parseJson(client, prompt, isDisambiguationResult, 1500);
+  cache[cacheKey] = result.actions;
+  return result.actions;
 }
 
 export function createLabelClient(

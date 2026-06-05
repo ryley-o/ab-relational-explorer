@@ -56,7 +56,7 @@ export function ClusterController({ cluster, members, initialFocusId = null }: C
           focusedNodeId={focusedNodeId}
           onFocusNode={handleFocusNode}
           onBack={handleBack}
-          backLabel="← Back to collection"
+          backLabel="← Back to style"
           filters={filters}
         />
       )}

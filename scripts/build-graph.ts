@@ -59,7 +59,7 @@ const items: ContentItem<ProjectMeta>[] = projects.map((p) => ({
 const cacheDir = join(process.cwd(), ".graph-cache");
 mkdirSync(cacheDir, { recursive: true });
 
-const numClusters = Math.max(3, Math.round(projects.length / 4.5));
+const numClusters = Math.max(5, Math.min(30, Math.round(Math.sqrt(projects.length) * 1.12)));
 console.log(`Using ${numClusters} clusters for ${projects.length} projects`);
 
 async function main() {

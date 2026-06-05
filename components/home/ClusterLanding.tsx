@@ -50,7 +50,7 @@ export function ClusterLanding({ graph }: ClusterLandingProps) {
           Generative art,<br />related.
         </h1>
         <p className="mt-5 max-w-sm text-base leading-relaxed text-ink-dim">
-          {graph.nodes.length} Art Blocks projects across {graph.clusters.length} collections.
+          {graph.nodes.length} Art Blocks projects across {graph.clusters.length} styles.
         </p>
       </div>
 
